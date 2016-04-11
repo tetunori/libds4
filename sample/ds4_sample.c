@@ -8,13 +8,14 @@
 #include <stdlib.h>
 
 #include <ds4_output.h>
+#include <ds4_input.h>
 
 // ***************************************************************************
 // Definitions
 // ***************************************************************************
 #define PRT_PRIFIX    "[DS4 Sample] "
 
-#define DS4_DEBUG_ON ( 0 )
+#define DS4_DEBUG_ON ( 1 )
 #define DS4_PRT( format, ... )   printf("\033[37m" PRT_PRIFIX format"\033[m\n", ## __VA_ARGS__ )
 #define DS4_DPRT( format, ... )  if( DS4_DEBUG_ON ) printf("\033[37m" PRT_PRIFIX format"\033[m\n", ## __VA_ARGS__ )
 #define DS4_EPRT( format, ... )  printf("\033[31m" PRT_PRIFIX format"\033[m\n", ## __VA_ARGS__ )
@@ -26,7 +27,10 @@
 // ***************************************************************************
 // Declarations
 // ***************************************************************************
-int hid_output_to_ds4_test( void );
+static int hid_output_to_ds4_test( void );
+static int InputEventCallback( struct _stDS4InputEvt* pstInputEvt );
+static void dumpInputEvent( struct _stDS4InputEvt* pstInputEvt );
+static void showUsage( char* pStrAppName );
 
 // ***************************************************************************
 // Variables
@@ -168,32 +172,109 @@ int hid_output_to_ds4_test( void ){
     return 0;
 }
 
+int InputEventCallback( struct _stDS4InputEvt* pstInputEvt ){
+    dumpInputEvent( pstInputEvt );
+    return 0;
+}
+
+void dumpInputEvent( struct _stDS4InputEvt* pstInputEvt ){
+    // Dump Input Event Data.
+    DS4_DPRT( "\033[1;1H -- Current Controller Status." );
+    DS4_DPRT( "Square:%s, Circle:%s, Triangle:%s, Cross:%s",
+        pstInputEvt->btnSquare ? "X" : " ", pstInputEvt->btnCircle ? "X" : " ",
+        pstInputEvt->btnTriangle ? "X" : " ", pstInputEvt->btnCross ? "X" : " " );
+    DS4_DPRT( "L1:%s, L2:%s, L3:%s, R1:%s, R2:%s, R3:%s",
+        pstInputEvt->btnL1 ? "X" : " ", pstInputEvt->btnL2 ? "X" : " ",
+        pstInputEvt->btnL3 ? "X" : " ", pstInputEvt->btnR1 ? "X" : " ",
+        pstInputEvt->btnR2 ? "X" : " ", pstInputEvt->btnR3 ? "X" : " " );
+    DS4_DPRT( "Share:%s, PS:%s, TouchPad:%s, Options:%s",
+        pstInputEvt->btnShare ? "X" : " ", pstInputEvt->btnPlaystation ? "X" : " ",
+        pstInputEvt->btnTouchpad ? "X" : " ", pstInputEvt->btnOptions ? "X" : " " );
+    DS4_DPRT( "Up:%s, Down:%s, Left:%s, Right:%s",
+        pstInputEvt->btnUp ? "X" : " ", pstInputEvt->btnDown ? "X" : " ",
+        pstInputEvt->btnLeft ? "X" : " ", pstInputEvt->btnRight ? "X" : " " );
+    DS4_DPRT( "L2analog:%03d, R2analog:%03d",
+        pstInputEvt->L2analog, pstInputEvt->R2analog );
+    DS4_DPRT( "L3analogH:%03d, L3analogV:%03d, R3analogH:%03d, R3analogV:%03d",
+        pstInputEvt->L3analogH, pstInputEvt->L3analogV,
+        pstInputEvt->R3analogH, pstInputEvt->R3analogV );
+    DS4_DPRT( "Battery Level:%03d percent.", pstInputEvt->batteryLevel );
+
+}
 // ***************************************************************************
-// Main Looooooooooooop
+// Main Procedure
 // ***************************************************************************
-int main( int argc __attribute__((__unused__)), char **argv __attribute__((__unused__)) ){
+int main( int argc, char **argv ){
 
     int err, ret = 0;
+    char hid_raw_node_path[] = "/dev/hidraw0";
+
+    // Initialize for Output
     struct _stDS4OutputInitialize stDS4OutputInitialize;
-    char hid_raw_path[] = "/dev/hidraw0";
-    stDS4OutputInitialize.p_hid_raw_node_path = hid_raw_path;
+    stDS4OutputInitialize.p_hid_raw_node_path = hid_raw_node_path;
     stDS4OutputInitialize.debug_flag = 0;
 
-    err = ds4_output_initialize( &stDS4OutputInitialize );
-    if( err ){
-        DS4_EPRT( "ds4_output_initialize() error: %d", err );
-        ret = -1;
-        goto SUB_RET;
-    }
+    // Initialize for Input
+    struct _stDS4InputInitialize stDS4InputInitialize;
+    stDS4InputInitialize.p_hid_raw_node_path = hid_raw_node_path;
+    stDS4InputInitialize.debug_flag = 0;
 
-    err = hid_output_to_ds4_test();
-    if( err ){
-        DS4_EPRT( "hid_output_to_ds4_test() error: %d", err );
-        ret = -1;
-        goto SUB_RET;
+    if( argc == 2 ){
+        if( argv[1][0] == 'i' ){
+            // Input Sample
+            err = ds4_input_initialize( &stDS4InputInitialize );
+            if( err ){
+                DS4_EPRT( "ds4_input_initialize() error: %d", err );
+                ret = -1;
+                goto SUB_RET;
+            }
+
+            err = ds4_input_start_listening_event( InputEventCallback );
+            if( err ){
+                DS4_EPRT( "ds4_input_start_listening_event() error: %d", err );
+                ret = -1;
+                goto SUB_RET;
+            }
+
+            sleep(10);
+
+            err = ds4_input_stop_listening_event();
+            if( err ){
+                DS4_EPRT( "ds4_input_stop_listening_event() error: %d", err );
+                ret = -1;
+                goto SUB_RET;
+            }
+
+        }else if( argv[1][0] == 'o' ){
+            // Output Sample
+            err = ds4_output_initialize( &stDS4OutputInitialize );
+            if( err ){
+                DS4_EPRT( "ds4_output_initialize() error: %d", err );
+                ret = -1;
+                goto SUB_RET;
+            }
+
+            err = hid_output_to_ds4_test();
+            if( err ){
+                DS4_EPRT( "hid_output_to_ds4_test() error: %d", err );
+                ret = -1;
+                goto SUB_RET;
+            }
+        }else{
+            showUsage( argv[0] );
+        }
+    }else{
+        showUsage( argv[0] );
     }
 
 SUB_RET:
     return ret;
 
+}
+
+static void showUsage( char* pStrAppName ){
+    // Usage.
+    DS4_PRT( "Usage for Samples : " );
+    DS4_PRT( " Output Sample > %s o", pStrAppName );
+    DS4_PRT( " Input Sample  > %s i", pStrAppName );
 }

@@ -3,7 +3,7 @@ TARGET  = libbtds4_sample_app.elf
 
 CC := gcc
 CFLAGS := -g -MMD -MP -Wall -Wextra
-LDFLAGS = -lz ../libbtds4.so
+LDFLAGS = -lz -pthread ../libbtds4.so
 SRC_DIR = .
 OBJ_DIR = .
 INCLUDE = -I../include

@@ -203,10 +203,6 @@ static void* event_read_thread( void* pParam __attribute__((__unused__)) ){
         stDS4InputEvt.R2analog = event_data_buf[11];
         stDS4InputEvt.batteryLevel = event_data_buf[14];
 
-        if( ( stDS4InputEvt.btnShare == true ) && ( stDS4InputEvt.btnOptions == true ) ){
-            break;
-        }
-
         gInput_evt_callback( &stDS4InputEvt );
 
     }

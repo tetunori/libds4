@@ -36,6 +36,7 @@ struct _stDS4InputEvt{
     unsigned char R3analogV;
     unsigned char R3analogH;
     unsigned char batteryLevel;
+    unsigned char evtType;
     /* TODO : other sensor data */
 };
 

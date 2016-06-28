@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <linux/input.h>
 
@@ -45,6 +46,7 @@ static void* event_read_thread( void* pParam );
 static int ( *gInput_evt_callback )( struct _stDS4InputEvt* pstInputEvt );
 static pthread_t gEvent_read_thread_id;
 static bool gIsNeedStopEvtThread = false;
+static int is_exist_hid_raw_node( void );
 
 // ***************************************************************************
 // Functions
@@ -119,26 +121,36 @@ static void* event_read_thread( void* pParam __attribute__((__unused__)) ){
         // puts("\n");
     }
 
-    // Reopen file for achieve a beginning of event data.
-    if( ( hid_event_fp = freopen( g_hid_raw_node_path, "r", hid_event_fp ) ) == NULL ) {
-        HIDS4T_EPRT( "%s File reopen error. [%s]", g_hid_raw_node_path, strerror( errno ) );
-        goto FCLOSE_RET;
-    }
-
     // Event get loop.
     while( gIsNeedStopEvtThread == false ){
+        
+        // Reopen file for achieve a beginning of event data.
+        if( ( hid_event_fp = freopen( g_hid_raw_node_path, "r", hid_event_fp ) ) == NULL ) {
+            HIDS4T_EPRT( "%s File reopen error. [%s]", g_hid_raw_node_path, strerror( errno ) );
+            stDS4InputEvt.evtType = 0xFF;
+            gInput_evt_callback( &stDS4InputEvt );
+            goto FCLOSE_RET;        }
+        /*
+        if( is_exist_hid_raw_node() == 0 ){
+            HIDS4T_EPRT( "is_exist_hid_raw_node false" );
+            stDS4InputEvt.evtType = 0xFF;
+            gInput_evt_callback( &stDS4InputEvt );
+            goto FCLOSE_RET;
+        }
+        */
         // Read HID Event.
         read_size = fread( event_data_buf, sizeof(char), LIBDS4_INPUT_DATA_SIZE, hid_event_fp );
         if ( read_size == (ssize_t) -1 && errno != EINTR ) {
             HIDS4T_EPRT( "HID event fread error. [%s]", strerror(errno) );
-            goto FCLOSE_RET;
+            
         }else{
             HIDS4T_DPRT( "read_size[%d]", read_size );
             HIDS4T_DPRT( "buf:%02X,%02X,%02X,%02X ",
                             event_data_buf[0] & 0xFF, event_data_buf[1] & 0xFF,
                             event_data_buf[2] & 0xFF, event_data_buf[3] & 0xFF );
         }
-
+        
+        stDS4InputEvt.evtType = 0x00;
         // Handle Event packet
         stDS4InputEvt.L3analogH = event_data_buf[3];
         stDS4InputEvt.L3analogV = event_data_buf[4];
@@ -213,4 +225,12 @@ FCLOSE_RET:
 SUB_RET:
     HIDS4T_DPRT( "event_read_thread exit!" );
     pthread_exit( NULL );
+}
+
+static int is_exist_hid_raw_node( void ){
+    
+    struct stat st;
+    int ret = stat( g_hid_raw_node_path, &st );
+    return ( ret == 0 ) ? 1 : 0;
+    
 }

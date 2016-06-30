@@ -22,8 +22,14 @@ static char g_hid_raw_node_path[128];
 
 #define PRT_PRIFIX    "[libds4 INPUT] "
 
-#define LIBDS4_INPUT_DATA_SIZE   ( 78 )
+#define LIBDS4_USE_BT
+// #define LIBDS4_USE_USB
 
+#if defined( LIBDS4_USE_BT )
+#define LIBDS4_INPUT_DATA_SIZE   ( 78 )
+#elif defined( LIBDS4_USE_USB )
+#define LIBDS4_INPUT_DATA_SIZE   ( 64 )
+#endif
 static char g_debug_flag = 0;
 #define HIDS4T_PRT( format, ... )   printf("\033[37m" PRT_PRIFIX format"\033[m\n", ## __VA_ARGS__ )
 #define HIDS4T_DPRT( format, ... )  if( g_debug_flag ) printf("\033[37m" PRT_PRIFIX format"\033[m\n", ## __VA_ARGS__ )
@@ -151,17 +157,25 @@ static void* event_read_thread( void* pParam __attribute__((__unused__)) ){
         }
         
         stDS4InputEvt.evtType = 0x00;
+        
+        unsigned char hid_data_offset = 0;
+        #if defined( LIBDS4_USE_BT )
+        hid_data_offset = 3;
+        #elif defined( LIBDS4_USE_USB )
+        hid_data_offset = 1;
+        #endif
+        
         // Handle Event packet
-        stDS4InputEvt.L3analogH = event_data_buf[3];
-        stDS4InputEvt.L3analogV = event_data_buf[4];
-        stDS4InputEvt.R3analogH = event_data_buf[5];
-        stDS4InputEvt.R3analogV = event_data_buf[6];
+        stDS4InputEvt.L3analogH = event_data_buf[ hid_data_offset ];
+        stDS4InputEvt.L3analogV = event_data_buf[ hid_data_offset + 1 ];
+        stDS4InputEvt.R3analogH = event_data_buf[ hid_data_offset + 2 ];
+        stDS4InputEvt.R3analogV = event_data_buf[ hid_data_offset + 3 ];
 
         stDS4InputEvt.btnUp    = false;
         stDS4InputEvt.btnDown  = false;
         stDS4InputEvt.btnRight = false;
         stDS4InputEvt.btnLeft  = false;
-        switch( event_data_buf[7] & 0x0F ){
+        switch( event_data_buf[ hid_data_offset + 4 ] & 0x0F ){
           case 0x00:
             stDS4InputEvt.btnUp = true;
             break;
@@ -194,26 +208,26 @@ static void* event_read_thread( void* pParam __attribute__((__unused__)) ){
             break;
         }
 
-        stDS4InputEvt.btnSquare   = ( ( event_data_buf[7] & 0x10 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnCross    = ( ( event_data_buf[7] & 0x20 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnCircle   = ( ( event_data_buf[7] & 0x40 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnTriangle = ( ( event_data_buf[7] & 0x80 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnSquare   = ( ( event_data_buf[ hid_data_offset + 4 ] & 0x10 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnCross    = ( ( event_data_buf[ hid_data_offset + 4 ] & 0x20 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnCircle   = ( ( event_data_buf[ hid_data_offset + 4 ] & 0x40 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnTriangle = ( ( event_data_buf[ hid_data_offset + 4 ] & 0x80 ) != 0 ) ? true : false;
 
-        stDS4InputEvt.btnL1 = ( ( event_data_buf[8] & 0x01 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnR1 = ( ( event_data_buf[8] & 0x02 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnL2 = ( ( event_data_buf[8] & 0x04 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnR2 = ( ( event_data_buf[8] & 0x08 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnShare = ( ( event_data_buf[8] & 0x10 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnOptions = ( ( event_data_buf[8] & 0x20 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnL3 = ( ( event_data_buf[8] & 0x40 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnR3 = ( ( event_data_buf[8] & 0x80 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnL1 = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x01 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnR1 = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x02 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnL2 = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x04 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnR2 = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x08 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnShare = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x10 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnOptions = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x20 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnL3 = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x40 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnR3 = ( ( event_data_buf[ hid_data_offset + 5 ] & 0x80 ) != 0 ) ? true : false;
 
-        stDS4InputEvt.btnPlaystation = ( ( event_data_buf[9] & 0x01 ) != 0 ) ? true : false;
-        stDS4InputEvt.btnTouchpad    = ( ( event_data_buf[9] & 0x02 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnPlaystation = ( ( event_data_buf[ hid_data_offset + 6 ] & 0x01 ) != 0 ) ? true : false;
+        stDS4InputEvt.btnTouchpad    = ( ( event_data_buf[ hid_data_offset + 6 ] & 0x02 ) != 0 ) ? true : false;
 
-        stDS4InputEvt.L2analog = event_data_buf[10];
-        stDS4InputEvt.R2analog = event_data_buf[11];
-        stDS4InputEvt.batteryLevel = event_data_buf[14];
+        stDS4InputEvt.L2analog = event_data_buf[ hid_data_offset + 7 ];
+        stDS4InputEvt.R2analog = event_data_buf[ hid_data_offset + 8 ];
+        stDS4InputEvt.batteryLevel = event_data_buf[  hid_data_offset + 11 ];
 
         gInput_evt_callback( &stDS4InputEvt );
 
